@@ -1,47 +1,65 @@
-// এই ফাইলটি চালাতে, আপনাকে 'express', 'mysql2', এবং 'uuid' প্যাকেজগুলো ইনস্টল করতে হবে।
-// টার্মিনালে এই কমান্ডটি চালান: npm install express mysql2 uuid
+// To run this file, you need to install the required packages:
+// npm install express mongoose uuid dotenv
+
+require('dotenv').config();
 
 const express = require('express');
-const mysql = require('mysql2/promise');
+const mongoose = require('mongoose');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT;
 
-// ----- ডেটাবেস কনফিগারেশন -----
-const dbConfig = {
-    host: '127.0.0.1',
-    user: 'root',
-    password: '1234@4321', // আপনার MySQL পাসওয়ার্ড এখানে দিন
-    database: 'verification_db',
-    port: 3307 // আপনার MySQL পোর্ট যদি আলাদা হয় তবে এখানে দিন
-};
+// ----- Database Configuration (MongoDB Atlas) -----
+const mongoURI = process.env.MONGO_URI;
+
+// connect to MongoDB
+mongoose.connect(mongoURI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+})
+.then(() => console.log('✅ Connected to MongoDB Atlas'))
+.catch(err => console.error('❌ MongoDB connection error:', err));
+
+// ----- Define Schema -----
+const userSchema = new mongoose.Schema({
+    id: { type: String, required: true, unique: true },
+    name: String,
+    email: String,
+    phone: String
+});
+
+const User = mongoose.model('User', userSchema);
 
 // middleware
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public'))); // public ফোল্ডারে আপনার HTML ফাইলগুলো থাকতে হবে
+app.use(express.static(path.join(__dirname, 'public')));
 
-// ----- টিকিট জেনারেশন API Endpoin -----
+// ----- Ticket Generation API -----
 // Method: POST
 // Route: /api/generate-tickets
 app.post('/api/generate-tickets', async (req, res) => {
-    let connection;
     try {
         const ticketHolders = req.body.ticketHolders;
         if (!ticketHolders || ticketHolders.length === 0) {
             return res.status(400).json({ error: 'No ticket holders provided.' });
         }
 
-        connection = await mysql.createConnection(dbConfig);
         const tickets = [];
 
         for (const holder of ticketHolders) {
             const ticketId = uuidv4();
-            const sql = 'INSERT INTO users (id, name, email, phone) VALUES (?, ?, ?, ?)';
-            const values = [ticketId, holder.name, holder.email, holder.phone];
-            await connection.execute(sql, values);
-            
+
+            const newUser = new User({
+                id: ticketId,
+                name: holder.name,
+                email: holder.email,
+                phone: holder.phone
+            });
+
+            await newUser.save();
+
             tickets.push({
                 id: ticketId,
                 name: holder.name,
@@ -49,7 +67,7 @@ app.post('/api/generate-tickets', async (req, res) => {
                 phone: holder.phone
             });
         }
-        
+
         res.status(200).json({
             message: 'Tickets generated successfully.',
             tickets: tickets
@@ -58,33 +76,24 @@ app.post('/api/generate-tickets', async (req, res) => {
     } catch (error) {
         console.error('Error during ticket generation:', error);
         res.status(500).json({ error: 'An internal server error occurred during ticket generation.' });
-    } finally {
-        if (connection) connection.end();
     }
 });
 
-// ----- টিকিট ভেরিফিকেশন API Endpoin -----
+// ----- Ticket Verification API -----
 // Method: GET
 // Route: /api/verify/:id
 app.get('/api/verify/:id', async (req, res) => {
     const { id } = req.params;
-    let connection;
 
     try {
-        connection = await mysql.createConnection(dbConfig);
-        const [rows] = await connection.execute(
-            'SELECT id, name, email, phone FROM users WHERE id = ?',
-            [id]
-        );
+        const user = await User.findOne({ id: id }).lean();
 
-        if (rows.length > 0) {
-            // টিকিট পাওয়া গেলে ব্যবহারকারীর তথ্য ও একটি authentic স্ট্যাটাস পাঠানো হবে
+        if (user) {
             res.status(200).json({
                 authentic: true,
-                data: rows[0]
+                data: user
             });
         } else {
-            // টিকিট না পাওয়া গেলে
             res.status(404).json({
                 authentic: false,
                 message: 'Ticket not found.'
@@ -93,15 +102,13 @@ app.get('/api/verify/:id', async (req, res) => {
     } catch (error) {
         console.error('Database query error:', error);
         res.status(500).json({
-                authentic: false,
-                message: 'An internal server error occurred.'
-            });
-    } finally {
-        if (connection) connection.end();
+            authentic: false,
+            message: 'An internal server error occurred.'
+        });
     }
 });
 
-// সার্ভার চালু করা হবে
+// server listening
 app.listen(port, () => {
     console.log(`Verification API listening at http://localhost:${port}`);
     console.log(`Open http://localhost:${port}/admin.html to generate tickets`);
