@@ -100,6 +100,12 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // Ticket type options
+            const ticketOptions = [
+                'Junior',
+                'Senior'
+            ];
+
             const logoutButton = document.getElementById('logout-btn');
             const appDiv = document.getElementById('app');
             const addBtn = document.getElementById('add-btn');
@@ -226,13 +232,24 @@
                     statusIndicator.className = `status-indicator px-2 py-1 mt-2 rounded-full text-xs font-bold ${ticket.status === 'active' ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`;
                     statusIndicator.textContent = ticket.status.toUpperCase();
 
+                    const qrCodeClass = document.createElement('p');
+                    qrCodeClass.textContent = `Class: ${ticket.class || 'N/A'}`;
+                    qrCodeClass.className = 'text-xs text-gray-400 font-medium';
+
+                    // FIX: Add missing qrCodeType element
+                    const qrCodeType = document.createElement('p');
+                    qrCodeType.textContent = `Category: ${ticket.type || 'N/A'}`;
+                    qrCodeType.className = 'text-xs text-gray-400 font-medium';
+
                     ticketDetails.appendChild(qrCodeName);
                     ticketDetails.appendChild(qrCodeEmail);
                     ticketDetails.appendChild(statusIndicator);
+                    ticketDetails.appendChild(qrCodeClass); // Add class display
+                    ticketDetails.appendChild(qrCodeType);  // Add type display
 
                     qrCodeContainer.appendChild(qrCodeLink);
                     qrCodeContainer.appendChild(ticketDetails);
-                    
+
                     // Reset Button
                     const resetButton = document.createElement('button');
                     resetButton.textContent = 'Reset';
@@ -255,7 +272,7 @@
                             const data = await response.json();
                             if (response.ok) {
                                 showMessage(`Ticket for ${ticket.name} has been reset.`);
-                                // The status update will be handled by the live refresh
+                                fetchAllTickets();
                             } else {
                                 showMessage(data.message || 'Failed to reset ticket.', 'error');
                                 resetButton.textContent = originalText;
@@ -288,7 +305,7 @@
                                 const data = await response.json();
                                 if (response.ok) {
                                     showMessage(`Ticket for ${ticket.name} has been deleted.`);
-                                    // The status update will be handled by the live refresh
+                                    fetchAllTickets();
                                 } else {
                                     showMessage(data.message || 'Failed to delete ticket.', 'error');
                                 }
@@ -298,7 +315,6 @@
                             } finally {
                                 deleteButton.textContent = originalText;
                                 deleteButton.disabled = false;
-                                fetchAllTickets(); // Force a refresh after delete attempt
                             }
                         }
                     });
@@ -307,7 +323,7 @@
                     buttonGroup.className = 'flex mt-2';
                     buttonGroup.appendChild(resetButton);
                     buttonGroup.appendChild(deleteButton);
-                    
+
                     qrCodeContainer.appendChild(buttonGroup);
 
                     qrCodesDisplay.appendChild(qrCodeContainer);
@@ -331,17 +347,26 @@
                 newTicketHolderDiv.innerHTML = `
                     <div class="flex-grow space-y-1">
                         <label class="text-sm font-medium text-gray-700">Name</label>
-                        <input type="text" placeholder="Enter name" class="w-full px-4 py-2 text-gray-700 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400" required>
+                        <input type="text" name="name" placeholder="Name" class="w-full px-4 py-2 text-gray-700 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400" required>
                     </div>
                     <div class="flex-grow space-y-1">
                         <label class="text-sm font-medium text-gray-700">Email</label>
-                        <input type="email" placeholder="Enter email" class="w-full px-4 py-2 text-gray-700 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400" required>
+                        <input type="email" name="email" placeholder="Email" class="w-full px-4 py-2 text-gray-700 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400" required>
                     </div>
-                     <div class="flex-grow space-y-1">
+                    <div class="flex-grow space-y-1">
                         <label class="text-sm font-medium text-gray-700">Phone</label>
-                        <input type="tel" placeholder="Enter Phone Number" class="w-full px-4 py-2 text-gray-700 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400" required>
+                        <input type="tel" name="phone" placeholder="Phone" class="w-full px-4 py-2 text-gray-700 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400" required>
                     </div>
-                    <button class="remove-btn px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 transition-all duration-200">Remove</button>
+                    <div class="flex-grow space-y-1">
+                        <label class="text-sm font-medium text-gray-700">Class</label>
+                        <input type="text" name="class" placeholder="Class" class="w-full px-4 py-2 text-gray-700 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400" required>
+                    </div>
+                    <div class="flex-grow space-y-1">
+                        <label class="text-sm font-medium text-gray-700">Category</label>
+                        <select name="type" class="ticket-type w-full px-4 py-2 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                            ${ticketOptions.map(option => `<option value="${option}">${option}</option>`).join('')}
+                        </select>
+                    </div>
                 `;
                 ticketHoldersContainer.appendChild(newTicketHolderDiv);
                 updateRemoveButtons();
@@ -369,14 +394,16 @@
             generateBtn.addEventListener('click', async () => {
                 const ticketHolders = Array.from(ticketHoldersContainer.children).map(div => {
                     return {
-                        name: div.querySelector('input[type="text"]').value,
-                        email: div.querySelector('input[type="email"]').value,
-                        phone: div.querySelector('input[type="tel"]').value
+                        name: div.querySelector('input[name="name"]').value,
+                        email: div.querySelector('input[name="email"]').value,
+                        phone: div.querySelector('input[name="phone"]').value,
+                        class: div.querySelector('input[name="class"]').value, // Make sure this selector matches
+                        type: div.querySelector('select[name="type"]').value
                     };
-                }).filter(holder => holder.name && holder.email && holder.phone);
+                }).filter(holder => holder.name && holder.email && holder.phone && holder.class); // Include class in validation
 
                 if (ticketHolders.length === 0) {
-                    showMessage('Please enter at least one name,email,phone.', 'error');
+                    showMessage('Please fill in all required fields (name, email, phone, class) for at least one ticket.', 'error');
                     return;
                 }
 
@@ -396,33 +423,32 @@
                     });
                     const data = await response.json();
                     if (response.ok) {
-                        showMessage('Tickets generated successfully!');
-                        // Re-fetch all tickets to show the newly generated ones
+                        if (data.results.some(r => r.status === 'duplicate')) {
+                            showMessage('Some tickets were not generated due to duplicate information.', 'error');
+                        } else {
+                            showMessage('Tickets generated successfully!');
+                        }
                         fetchAllTickets();
                     } else {
-                        showMessage(data.error || 'An unexpected error occurred.', 'error');
+                        showMessage(data.message || 'Failed to generate tickets.', 'error');
                     }
                 } catch (error) {
-                    showMessage('Failed to connect to the server.', 'error');
-                    console.error('Fetch error:', error);
+                    showMessage('Network error. Failed to generate tickets.', 'error');
                 } finally {
-                    loadingSpinner.classList.add('hidden');
                     generateBtn.disabled = false;
+                    loadingSpinner.classList.add('hidden');
                 }
-            });
+            };
 
-            // Initial setup
-            addTicketHolderField();
+            // Initial fetch
             fetchAllTickets();
 
-             //Set up a periodic refresh to get the latest status
-            setInterval(fetchAllTickets, 5000); // Poll every 5 seconds
-
+            // Logout functionality
             logoutButton.addEventListener('click', () => {
                 sessionStorage.removeItem('authToken');
                 window.location.href = '/login.html';
             });
-     });
+        });
     </script>
 </body>
 

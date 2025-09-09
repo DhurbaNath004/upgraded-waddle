@@ -5,7 +5,10 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
+<<<<<<< HEAD
     "jsonwebtoken": "^9.0.2",
+=======
+>>>>>>> 0e45341aa8112ccc71d13cb748b7ba9882c8925a
     "mongodb": "^6.19.0",
     "mongoose": "^8.18.0",
     "mysql2": "^3.14.4",

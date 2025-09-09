@@ -2,6 +2,10 @@
 // npm install express mongoose uuid dotenv
 
 require('dotenv').config();
+// To run this file, you need to install the required packages:
+// npm install express mongoose uuid dotenv
+
+require('dotenv').config();
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -29,7 +33,9 @@ const userSchema = new mongoose.Schema({
     name: String,
     email: { type: String, required: true, unique: true },
     phone: String,
-    status: { type: String, default: 'active' } // 'active' or 'used'
+    status: { type: String, default: 'active' },
+    type: { type: String, default: 'Regular' },
+    class: { type: String, required: true } // Add this line
 });
 
 const User = mongoose.model('User', userSchema);
@@ -84,40 +90,34 @@ app.post('/api/login', async (req, res) => {
 // Route: /api/generate-tickets
 app.post('/api/generate-tickets', authenticateToken, async (req, res) => {
     try {
-        const ticketHolders = req.body.ticketHolders;
-        if (!ticketHolders || ticketHolders.length === 0) {
-            return res.status(400).json({ error: 'No ticket holders provided.' });
-        }
-
-        // Check for duplicate emails
-        const emails = ticketHolders.map(holder => holder.email);
-        const existingUsers = await User.find({ email: { $in: emails } });
-
-        if (existingUsers.length > 0) {
-            const duplicateEmails = existingUsers.map(user => user.email);
-            return res.status(409).json({
-                error: `Duplicate email(s) found: ${duplicateEmails.join(', ')}. Tickets not generated.`
+        const { ticketHolders } = req.body;
+        const results = [];
+        for (const holder of ticketHolders) {
+            // Check if email already exists
+            const exists = await User.findOne({ email: holder.email });
+            if (exists) {
+                results.push({ email: holder.email, status: 'duplicate' });
+                continue;
+            }
+            const newUser = new User({
+                id: uuidv4(),
+                name: holder.name,
+                email: holder.email,
+                phone: holder.phone,
+                class: holder.class,
+                type: holder.type,
+                status: 'active'
             });
+            await newUser.save();
+            results.push({ email: holder.email, status: 'created' });
         }
-
-        const newTickets = ticketHolders.map(holder => ({
-            id: uuidv4(),
-            name: holder.name,
-            email: holder.email,
-            phone: holder.phone,
-            status: 'active'
-        }));
-
-        await User.insertMany(newTickets);
-
         res.status(200).json({
-            message: 'Tickets generated successfully.',
-            tickets: newTickets.map(t => ({ id: t.id, name: t.name, email: t.email, phone: t.phone, status: t.status }))
+            message: 'Ticket generation completed.',
+            results
         });
-
     } catch (error) {
-        console.error('Error during ticket generation:', error);
-        res.status(500).json({ error: 'An internal server error occurred during ticket generation.' });
+        console.error('Error generating tickets:', error);
+        res.status(500).json({ error: 'Failed to generate tickets' });
     }
 });
 
@@ -127,7 +127,7 @@ app.post('/api/generate-tickets', authenticateToken, async (req, res) => {
 app.get('/api/tickets', authenticateToken, async (req, res) => {
     try {
         const tickets = await User.find({}).sort({ name: 1 });
-        res.status(200).json({ tickets: tickets.map(t => ({ id: t.id, name: t.name, email: t.email, phone: t.phone, status: t.status })) });
+        res.status(200).json({ tickets: tickets.map(t => ({ id: t.id, name: t.name, email: t.email, phone: t.phone, type: t.type, class: t.class, status: t.status })) });
     } catch (error) {
         console.error('Error fetching tickets:', error);
         res.status(500).json({ message: 'An internal server error occurred while fetching tickets.' });
@@ -140,29 +140,30 @@ app.get('/api/tickets', authenticateToken, async (req, res) => {
 // Route: /api/verify/:id
 app.get('/api/verify/:id', async (req, res) => {
     try {
-        const { id } = req.params;
-        const user = await User.findOne({ id });
-
-        if (!user) {
-            return res.status(404).json({ status: 'not-found', message: 'Ticket not found.' });
+        const ticket = await User.findOne({ id: req.params.id });
+        if (!ticket) {
+            return res.status(404).json({ status: 'not-found' });
         }
 
-        if (user.status !== 'active') {
-            return res.status(200).json({ status: 'used', message: 'This ticket has already been used.' });
+        // If ticket exists but has been used
+        if (ticket.status === 'used') {
+            return res.status(200).json({ status: 'used' });
         }
 
-        // Valid ticket, update status to "used"
-        user.status = 'used';
-        await user.save();
-
+        // Valid ticket found
         return res.status(200).json({
             status: 'authentic',
-            data: { name: user.name, email: user.email, phone: user.phone}
+            data: {
+                name: ticket.name,
+                email: ticket.email,
+                phone: ticket.phone,
+                class: ticket.class, // Make sure class is included
+                type: ticket.type
+            }
         });
-
     } catch (error) {
-        console.error('Database query error:', error);
-        res.status(500).json({ status: 'error', message: 'An internal server error occurred.' });
+        console.error('Verification error:', error);
+        res.status(500).json({ status: 'error', message: 'Server error' });
     }
 });
 
@@ -212,6 +213,10 @@ app.delete('/api/delete-ticket/:id', authenticateToken, async (req, res) => {
     }
 });
 
+const ticketOptions = [
+    'Junior',
+    'Senior'
+];
 
 // server listening
 app.listen(port, () => {
