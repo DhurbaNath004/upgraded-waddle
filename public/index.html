@@ -92,15 +92,16 @@
             let detailsHtml = '';
             if (status === 'authentic' && data) {
                 detailsHtml = `
-                    <div class="mt-6 w-full text-left">
-                        <p class="text-xl font-semibold text-gray-700">Ticket Holder Details</p>
-                        <div class="mt-4 space-y-2 text-gray-600">
-                            <p class="text-lg"><strong>Name:</strong> ${data.name}</p>
-                            <p class="text-lg"><strong>Email:</strong> ${data.email}</p>
-                            <p class="text-lg"><strong>Phone:</strong> ${data.phone}</p>
-                        </div>
-                    </div>
-                `;
+    <div class="mt-6 w-full text-left">
+        <p class="text-xl font-semibold text-gray-700">Ticket Holder Details</p>
+        <div class="mt-4 space-y-2 text-gray-600">
+            <p class="text-lg"><strong>Name:</strong> ${data.name}</p>
+            <p class="text-lg"><strong>Email:</strong> ${data.email}</p>
+            <p class="text-lg"><strong>Phone:</strong> ${data.phone}</p>
+            <p class="text-lg"><strong>Category:</strong> ${data.category}</p> <!-- NEW -->
+        </div>
+    </div>
+`;
             } else if (status === 'not-found') {
                 detailsHtml = `
                     <p class="mt-4 text-gray-500 font-medium text-lg">

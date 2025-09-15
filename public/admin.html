@@ -226,6 +226,12 @@
                     statusIndicator.className = `status-indicator px-2 py-1 mt-2 rounded-full text-xs font-bold ${ticket.status === 'active' ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`;
                     statusIndicator.textContent = ticket.status.toUpperCase();
 
+                    // Add category display
+                    const qrCodeCategory = document.createElement('p');
+                    qrCodeCategory.textContent = `Category: ${ticket.category}`;
+                    qrCodeCategory.className = 'text-sm text-gray-600 truncate w-full';
+                    ticketDetails.appendChild(qrCodeCategory);
+
                     ticketDetails.appendChild(qrCodeName);
                     ticketDetails.appendChild(qrCodeEmail);
                     ticketDetails.appendChild(statusIndicator);
@@ -327,7 +333,7 @@
             // Add new ticket holder input fields
             function addTicketHolderField() {
                 const newTicketHolderDiv = document.createElement('div');
-                newTicketHolderDiv.className = 'flex items-end space-x-2';
+                newTicketHolderDiv.className = 'flex items-end space-x-2 ticket-holder-row';
                 newTicketHolderDiv.innerHTML = `
                     <div class="flex-grow space-y-1">
                         <label class="text-sm font-medium text-gray-700">Name</label>
@@ -337,14 +343,20 @@
                         <label class="text-sm font-medium text-gray-700">Email</label>
                         <input type="email" placeholder="Enter email" class="w-full px-4 py-2 text-gray-700 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400" required>
                     </div>
-                     <div class="flex-grow space-y-1">
+                    <div class="flex-grow space-y-1">
                         <label class="text-sm font-medium text-gray-700">Phone</label>
                         <input type="tel" placeholder="Enter Phone Number" class="w-full px-4 py-2 text-gray-700 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400" required>
                     </div>
-                    <button class="remove-btn px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 transition-all duration-200">Remove</button>
+                    <div class="flex-grow space-y-1">
+                        <label class="text-sm font-medium text-gray-700">Category</label>
+                        <select class="w-full px-4 py-2 text-gray-700 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                            <option value="Regular">Regular</option>
+                            <option value="VIP">VIP</option>
+                            <option value="Premium">Premium</option>
+                        </select>
+                    </div>
                 `;
                 ticketHoldersContainer.appendChild(newTicketHolderDiv);
-                updateRemoveButtons();
             }
 
             // Update the state of remove buttons
@@ -368,12 +380,14 @@
             // Event listener for generating tickets
             generateBtn.addEventListener('click', async () => {
                 const ticketHolders = Array.from(ticketHoldersContainer.children).map(div => {
-                    return {
-                        name: div.querySelector('input[type="text"]').value,
-                        email: div.querySelector('input[type="email"]').value,
-                        phone: div.querySelector('input[type="tel"]').value
-                    };
-                }).filter(holder => holder.name && holder.email && holder.phone);
+    return {
+        name: div.querySelector('input[type="text"]').value,
+        email: div.querySelector('input[type="email"]').value,
+        phone: div.querySelector('input[type="tel"]').value,
+        category: div.querySelector('select').value // <-- GET CATEGORY
+    };
+}).filter(holder => holder.name && holder.email && holder.phone);
+
 
                 if (ticketHolders.length === 0) {
                     showMessage('Please enter at least one name,email,phone.', 'error');

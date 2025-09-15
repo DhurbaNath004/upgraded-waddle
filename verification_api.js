@@ -1,13 +1,19 @@
 // To run this file, you need to install the required packages:
-// npm install express mongoose uuid dotenv
+// npm install express mongoose uuid dotenv bcryptjs
 
-require('dotenv').config();
+import dotenv from 'dotenv';
+dotenv.config();
 
-const express = require('express');
-const mongoose = require('mongoose');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const bcrypt = require('bcryptjs');
+import express from 'express';
+import mongoose from 'mongoose';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import bcrypt from 'bcryptjs';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -20,8 +26,8 @@ mongoose.connect(mongoURI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
 })
-.then(() => console.log('✅ Connected to MongoDB Atlas'))
-.catch(err => console.error('❌ MongoDB connection error:', err));
+.then(() => console.log(' Connected to MongoDB Atlas'))
+.catch(err => console.error(' MongoDB connection error:', err));
 
 // ----- Define Schema -----
 const userSchema = new mongoose.Schema({
@@ -29,7 +35,8 @@ const userSchema = new mongoose.Schema({
     name: String,
     email: { type: String, required: true, unique: true },
     phone: String,
-    status: { type: String, default: 'active' } // 'active' or 'used'
+    status: { type: String, default: 'active' }, // 'active' or 'used'
+    category: { type: String, required: true } // e.g., 'VIP', 'General', etc.
 });
 
 const User = mongoose.model('User', userSchema);
@@ -105,14 +112,15 @@ app.post('/api/generate-tickets', authenticateToken, async (req, res) => {
             name: holder.name,
             email: holder.email,
             phone: holder.phone,
-            status: 'active'
+            status: 'active',
+            category: holder.category
         }));
 
         await User.insertMany(newTickets);
 
         res.status(200).json({
             message: 'Tickets generated successfully.',
-            tickets: newTickets.map(t => ({ id: t.id, name: t.name, email: t.email, phone: t.phone, status: t.status }))
+            tickets: newTickets.map(t => ({ id: t.id, name: t.name, email: t.email, phone: t.phone, status: t.status, category: t.category }))
         });
 
     } catch (error) {
@@ -124,10 +132,10 @@ app.post('/api/generate-tickets', authenticateToken, async (req, res) => {
 // ----- View All Tickets API Endpoint -----
 // Method: GET
 // Route: /api/tickets
-app.get('/api/tickets', authenticateToken, async (req, res) => {
+app.get('/api/tickets', authenticateToken, async (_req, res) => {
     try {
         const tickets = await User.find({}).sort({ name: 1 });
-        res.status(200).json({ tickets: tickets.map(t => ({ id: t.id, name: t.name, email: t.email, phone: t.phone, status: t.status })) });
+        res.status(200).json({ tickets: tickets.map(t => ({ id: t.id, name: t.name, email: t.email, phone: t.phone, status: t.status, category: t.category })) });
     } catch (error) {
         console.error('Error fetching tickets:', error);
         res.status(500).json({ message: 'An internal server error occurred while fetching tickets.' });
@@ -157,7 +165,7 @@ app.get('/api/verify/:id', async (req, res) => {
 
         return res.status(200).json({
             status: 'authentic',
-            data: { name: user.name, email: user.email, phone: user.phone}
+            data: { name: user.name, email: user.email, phone: user.phone, category: user.category }
         });
 
     } catch (error) {
@@ -215,7 +223,7 @@ app.delete('/api/delete-ticket/:id', authenticateToken, async (req, res) => {
 
 // server listening
 app.listen(port, () => {
-    console.log(`✅ Verification API listening at http://localhost:${port}`);
+    console.log(` Verification API listening at http://localhost:${port}`);
     console.log(`👉 Open http://localhost:${port}/login.html to access admin dashboard`);
     console.log(`👉 Open http://localhost:${port}/index.html to verify a ticket`);
 });
